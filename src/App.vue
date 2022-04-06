@@ -34,7 +34,13 @@ export default {
   methods: {
     handleFileUpload() {
       this.file = this.$refs.file.files[0];
-      console.log(this.file);
+      console.log(this.file.name);
+
+      var reader = new FileReader()
+      reader.onload = function (progressEvent) {
+        console.log(progressEvent.target.result);
+      }
+      reader.readAsText(this.file);
 
       var new_zip = new JSZip();
       new_zip.loadAsync(this.file)
