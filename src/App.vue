@@ -95,6 +95,8 @@ export default {
   },
   methods: {
     handleFileUpload() {
+      this.files = [];
+      this.fileNames = [];
       this.selectedFile = this.$refs.file.files[0];
       // console.log(this.selectedFile.name);
 
