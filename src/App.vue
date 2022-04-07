@@ -11,18 +11,18 @@
           @change="handleFileUpload()"
         >
         <div>
-          <h3 v-if="selectFile">zip file info</h3>
-          <ul v-if="selectFile">
-            <li>lastModified : {{ selectFile.lastModified }}</li>
-            <li>lastModifiedDate : {{ selectFile.lastModifiedDate }}</li>
-            <li>name : {{ selectFile.name }}</li>
-            <li>size(byte) : {{ selectFile.size }}</li>
-            <li>type : {{ selectFile.type }}</li>
-            <li>webkitRelativePath : {{ selectFile.webkitRelativePath }}</li>
+          <h3 v-if="selectedFile">zip file info</h3>
+          <ul v-if="selectedFile">
+            <li>lastModified : {{ selectedFile.lastModified }}</li>
+            <li>lastModifiedDate : {{ selectedFile.lastModifiedDate }}</li>
+            <li>name : {{ selectedFile.name }}</li>
+            <li>size(byte) : {{ selectedFile.size }}</li>
+            <li>type : {{ selectedFile.type }}</li>
+            <li>webkitRelativePath : {{ selectedFile.webkitRelativePath }}</li>
           </ul>
         </div>
         <div>
-          <h3 v-if="selectFile">file list</h3>
+          <h3 v-if="selectedFile">file list</h3>
           <ul>
             <li
               v-for="(name, idx) in fileNames"
@@ -35,12 +35,14 @@
       </div>
       <div id="split-1" class="content">
         <button
-          variant="secondary"
+          :disabled="!selectedFile"
           @click="handleClickDownloadBtn"
         >
-          download
+          다운 로드
         </button>
-
+        <div v-if="selectedFile">
+          <p>{{ selectedFile.name }}</p>
+        </div>
       </div>
     </div>
   </div>
@@ -65,8 +67,10 @@ export default {
       maxSize: [Infinity, Infinity],
       cursor: 'col-resize',
 
-      selectFile: null,
+      selectedFile: null,
+      rawFileNames: [],
       fileNames: [],
+      files: [],
     };
   },
   mounted() {
@@ -91,41 +95,41 @@ export default {
   },
   methods: {
     handleFileUpload() {
-      this.selectFile = this.$refs.file.files[0];
-      console.log(this.selectFile.name);
-
-      var reader = new FileReader()
-      reader.onload = function (progressEvent) {
-        console.log(progressEvent.target.result);
-      }
-      reader.readAsText(this.selectFile);
+      this.selectedFile = this.$refs.file.files[0];
+      // console.log(this.selectedFile.name);
 
       var new_zip = new JSZip();
-      new_zip.loadAsync(this.selectFile)
+      new_zip.loadAsync(this.selectedFile)
         .then((zip) => {
-          this.fileNames = Object.keys(zip.files);
-          console.log(this.fileNames);
+          this.rawFileNames = Object.keys(zip.files);
+          console.log(this.rawFileNames);
           
-          this.fileNames.forEach((file) => {
+          const promiseArray = [];
+          this.rawFileNames.forEach((file) => {
             if (!file.endsWith('/')) {
-              zip.file(file).async("string")
-                .then(async (data) => {
-                  console.log('=============================');
-                  console.log(`${file}`);
-                  console.log('=============================');              
-                  console.log(data);
-                });
+              this.fileNames.push(file);
+              promiseArray.push(zip.file(file).async('uint8array'));
             }
           });
+          Promise.all(promiseArray)
+            .then((data) => {
+              // console.log(data);
+              this.fileNames.forEach((file, idx) => {
+                this.files.push({
+                  name: file,
+                  content: data[idx],
+                });
+              });
+              // console.log(`files: ${JSON.stringify(this.files, null, 4)}`);
+            });
         });
     },
     handleClickDownloadBtn() {
       var zip = new JSZip();
 
-      zip.file("amount.txt", "€15 - 가나다라");
-      zip.file("amount.txt").async("uint8array");
-      zip.file("sub/file.txt", "content 111");
-      zip.file("sub/file.txt").async("uint8array");
+      this.files.forEach((file) => {
+        zip.file(file.name, file.content);
+      });
 
       zip.generateAsync({ type: "blob" }, function updateCallback(metadata) {
           var msg = "progression: " + metadata.percent.toFixed(2) + " %";
@@ -148,12 +152,12 @@ export default {
 
 <style>
 .content {
-	padding: 8px;
-	border: 1px solid #c0c0c0;
-	box-shadow: inset 0 1px 2px #e4e4e4;
-	background-color: #fff;
-	
-	height: 500px;
+  padding: 8px;
+  border: 1px solid #c0c0c0;
+  box-shadow: inset 0 1px 2px #e4e4e4;
+  background-color: #fff;
+  font-size: 14px;
+	min-height: 400px;
 }
 .split {
   display: flex;
